@@ -6,7 +6,7 @@ get_user_info() {
   echo -e "\nEnter your username:"
   read USERNAME
 
-  # Validar comprimento do username
+  # Validate username length
   MAX_LENGTH=22
   USERNAME_LENGTH=${#USERNAME}
   if [[ $USERNAME_LENGTH -gt $MAX_LENGTH ]]; then
@@ -14,16 +14,20 @@ get_user_info() {
     exit 1
   fi
 
-  USER_INFO=$($PSQL "SELECT COUNT(g.game_id) AS games_played, COALESCE(MIN(g.number_of_guesses), 0) AS best_game FROM players p LEFT JOIN games g ON p.user_id = g.user_id WHERE p.username='$USERNAME' GROUP BY p.user_id")
+  USER_INFO=$($PSQL "SELECT u.user_id, COUNT(g.game_id) AS games_played, COALESCE(MIN(g.number_of_guesses), 0) AS best_game 
+                      FROM users u 
+                      LEFT JOIN games g ON u.user_id = g.user_id 
+                      WHERE u.username='$USERNAME' 
+                      GROUP BY u.user_id")
 
   if [[ -z $USER_INFO ]]; then
     echo -e "\nWelcome, $USERNAME! It looks like this is your first time here.\n"
-    INSERT_RESULT=$($PSQL "INSERT INTO players (username) VALUES ('$USERNAME') RETURNING user_id")
+    INSERT_RESULT=$($PSQL "INSERT INTO users (username) VALUES ('$USERNAME') RETURNING user_id")
     USER_ID=$(echo $INSERT_RESULT | xargs)
     GAMES_PLAYED=0
     BEST_GAME=0
   else
-    IFS='|' read -r GAMES_PLAYED BEST_GAME <<< "$USER_INFO"
+    IFS='|' read -r USER_ID GAMES_PLAYED BEST_GAME <<< "$USER_INFO"
     echo "Welcome back, $USERNAME! You have played $GAMES_PLAYED games, and your best game took $BEST_GAME guesses."
   fi
 }
@@ -56,6 +60,13 @@ start_game() {
 
   ((GUESS_COUNT++))
 
+  # Ensure USER_ID is set before using it
+  if [[ -z $USER_ID ]]; then
+    echo "Error: User ID is not set. Cannot insert game record."
+    exit 1
+  fi
+
+  # Insert game record
   INSERT_GAME_RESULT=$($PSQL "INSERT INTO games (user_id, secret_number, number_of_guesses) VALUES ($USER_ID, $SECRET_NUMBER, $GUESS_COUNT)")
 
   echo "You guessed it in $GUESS_COUNT tries. The secret number was $SECRET_NUMBER. Nice job!"
