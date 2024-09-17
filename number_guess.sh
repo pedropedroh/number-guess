@@ -6,7 +6,6 @@ get_user_info() {
   echo -e "\nEnter your username:"
   read USERNAME
 
-  # Validar comprimento do username
   MAX_LENGTH=22
   USERNAME_LENGTH=${#USERNAME}
   if [[ $USERNAME_LENGTH -gt $MAX_LENGTH ]]; then
